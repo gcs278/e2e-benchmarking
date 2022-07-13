@@ -33,7 +33,11 @@ deploy_infra(){
 
   log "Downloading and extracting kube-burner binary"
   curl -LsS ${KUBE_BURNER_RELEASE_URL} | tar xz kube-burner
-  ./kube-burner init -c http-perf.yml --uuid=${UUID}
+  KB_YAML=http-perf.yml
+  if [[ "$ISTIO_ENVOY" == "true" ]]; then
+    KB_YAML=http-perf-istio.yml
+  fi
+  ./kube-burner init -c $KB_YAML --uuid=${UUID}
 
   log "Creating configmap from workload.py file"
   oc create configmap -n http-scale-client workload --from-file=workload.py
@@ -170,8 +174,13 @@ gen_mb_config(){
     local scheme=https
     local port=443
   fi
+  if [[ "$ISTIO_ENVOY" == "true" ]]; then
+    hosts="$(oc get httproute -n http-scale-${termination} --no-headers -o custom-columns="route:.spec.hostnames[0]") $(oc get tlsroute -n http-scale-${termination} --no-headers -o custom-columns="route:.spec.hostnames[0]")"
+  else
+    hosts="$(oc get route -n http-scale-${termination} --no-headers -o custom-columns="route:.spec.host")"
+  fi
   (echo "["
-  for host in $(oc get route -n http-scale-${termination} --no-headers -o custom-columns="route:.spec.host"); do
+  for host in $hosts; do
     if [[ ${first} == "true" ]]; then
         echo "{"
         first=false
@@ -207,7 +216,12 @@ gen_mb_mix_config(){
       local scheme=https
       local port=443
     fi
-    for host in $(oc get route -n http-scale-${mix_termination} --no-headers -o custom-columns="route:.spec.host"); do
+    if [[ "$ISTIO_ENVOY" == "true" ]]; then
+      hosts="$(oc get httproute -n http-scale-${mix_termination} --no-headers -o custom-columns="route:.spec.hostnames[0]") $(oc get tlsroute -n http-scale-${mix_termination} --no-headers -o custom-columns="route:.spec.hostnames[0]")"
+    else
+      hosts="$(oc get route -n http-scale-${mix_termination} --no-headers -o custom-columns="route:.spec.host")"
+    fi
+    for host in $hosts; do
       if [[ ${first} == "true" ]]; then
           echo "{"
           first=false
@@ -239,7 +253,12 @@ test_routes(){
     if [[ ${termination} == "http" ]]; then
       local scheme="http://"
     fi
-    for host in $(oc get route -n http-scale-${termination} --no-headers -o custom-columns="route:.spec.host"); do
+    if [[ "$ISTIO_ENVOY" == "true" ]]; then
+      hosts="$(oc get httproute -n http-scale-${mix_termination} --no-headers -o custom-columns="route:.spec.hostnames[0]") $(oc get tlsroute -n http-scale-${mix_termination} --no-headers -o custom-columns="route:.spec.hostnames[0]")"
+    else
+      hosts="$(oc get route -n http-scale-${termination} --no-headers -o custom-columns="route:.spec.host")"
+    fi
+    for host in $hosts; do
       curl --retry 3 --connect-timeout 5 -sSk ${scheme}${host}${URL_PATH} -o /dev/null
     done
   done

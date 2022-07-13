@@ -1,0 +1,9 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: http-perf-reencrypt-{{.Replica}}
+spec:
+  host: http-perf-{{.Replica}}
+  trafficPolicy:
+    tls:
+      mode: SIMPLE

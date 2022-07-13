@@ -1,0 +1,13 @@
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: TLSRoute
+metadata:
+  name: http-perf-passthrough-{{.Replica}}
+spec:
+  parentRefs:
+  - name: gateway-perf
+    namespace: gwapi
+  hostnames: ["{{.Replica}}.http-perf-passthrough.gwapi.bm.example.com"]
+  rules:
+  - backendRefs:
+    - name: http-perf-{{.Replica}}
+      port: 8443

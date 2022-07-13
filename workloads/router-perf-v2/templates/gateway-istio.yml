@@ -1,0 +1,55 @@
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: Gateway
+metadata:
+  name: gateway-perf
+  namespace: gwapi
+spec:
+  addresses:
+  - value: gateway-manual.gwapi.svc.cluster.local
+    type: Hostname
+  selector:
+    istio: ingressgateway # use Istio default gateway implementation
+  gatewayClassName: istio
+  listeners:
+  - name: http
+    hostname: "*.http-perf.gwapi.bm.example.com"
+    port: 80
+    protocol: HTTP
+    allowedRoutes:
+      namespaces:
+        from: All
+  - name: edge
+    hostname: "*.http-perf-edge.gwapi.bm.example.com"
+    port: 443
+    protocol: HTTPS
+    tls:
+      mode: Terminate
+      certificateRefs:
+      - name: edge-credential
+        group: ""
+    allowedRoutes:
+      namespaces:
+        from: All
+  - name: reencrypt
+    hostname: "*.http-perf-reencrypt.gwapi.bm.example.com"
+    port: 443
+    protocol: HTTPS
+    tls:
+      mode: Terminate
+      certificateRefs:
+      - name: re-credential
+        group: ""
+    allowedRoutes:
+      namespaces:
+        from: All
+  - name: passthrough
+    hostname: "*.http-perf-passthrough.gwapi.bm.example.com"
+    port: 443
+    protocol: TLS
+    tls:
+      mode: Passthrough
+    allowedRoutes:
+      namespaces:
+        from: All
+      kinds:
+      - kind: TLSRoute
